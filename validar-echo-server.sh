@@ -1,7 +1,7 @@
 #!/bin/bash
 
 SERVER_CONTAINER_NAME="server"
-SERVER_PORT=4806
+SERVER_PORT=12345
 NETWORK_NAME="tp0_testing_net"
 
 TEST_STRING="testing_the_server"
