@@ -1,6 +1,6 @@
 # id: 1
 server:
-  address: "server:12345"
+  address: "server:4806"
 loop:
   amount: 5
   period: "5s"

@@ -1,0 +1,4 @@
+# These files are persistent on docker volume.
+# Added to ignore to prevent image rebuild on changes
+server/config.ini
+client/config.yaml
