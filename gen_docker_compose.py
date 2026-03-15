@@ -7,7 +7,6 @@ class DockerComposeGenerator:
     entrypoint: python3 /main.py
     environment:
       - PYTHONUNBUFFERED=1
-      - LOGGING_LEVEL=DEBUG
     networks:
       - testing_net
     volumes:
@@ -21,7 +20,6 @@ class DockerComposeGenerator:
     entrypoint: /client
     environment:
       - CLI_ID=[[id]]
-      - CLI_LOG_LEVEL=DEBUG
     networks:
       - testing_net
     depends_on:
