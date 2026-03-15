@@ -10,6 +10,8 @@ class DockerComposeGenerator:
       - LOGGING_LEVEL=DEBUG
     networks:
       - testing_net
+    volumes:
+      - ./server/config.ini:/config.ini
 """
 
     _CLIENT_TEMPLATE = """
@@ -24,6 +26,8 @@ class DockerComposeGenerator:
       - testing_net
     depends_on:
       - server
+    volumes:
+      - ./client/config.yaml:/config.yaml
 """
 
     _NETWORKS_SECTION = """
