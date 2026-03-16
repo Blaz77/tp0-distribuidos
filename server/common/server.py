@@ -71,7 +71,7 @@ class Server:
             if self._is_running:
                 logging.error(f"action: accept_connections | result: fail | error: {e}")
             else:
-                logging.info(f"action: accept_connections | result: cancelled")
+                logging.info(f"action: accept_connections cancelled | result: success")
             raise
         
     
