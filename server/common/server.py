@@ -51,6 +51,7 @@ class Server:
             logging.error(f"action: receive_message | result: fail | error: {e}")
         finally:
             client_sock.close()
+            logging.info('action: client socket close | result: success')
 
     def __accept_new_connection(self):
         """
@@ -62,10 +63,20 @@ class Server:
 
         # Connection arrived
         logging.info('action: accept_connections | result: in_progress')
-        c, addr = self._server_socket.accept()
-        logging.info(f'action: accept_connections | result: success | ip: {addr[0]}')
-        return c
+        try:
+            c, addr = self._server_socket.accept()
+            logging.info(f'action: accept_connections | result: success | ip: {addr[0]}')
+            return c
+        except OSError as e:
+            if self._is_running:
+                logging.error(f"action: accept_connections | result: fail | error: {e}")
+            else:
+                logging.info(f"action: accept_connections | result: cancelled")
+            raise
+        
     
     def _on_stop_signal(self, _signum: int, _frame: str) -> None:
+        logging.info('action: shutdown signal received | result: success')
         self._is_running = False
         self._server_socket.close()
+        logging.info('action: server socket close | result: success')
