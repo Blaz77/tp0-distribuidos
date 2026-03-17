@@ -3,7 +3,9 @@ package main
 import (
 	"fmt"
 	"os"
+	"os/signal"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/op/go-logging"
@@ -90,6 +92,16 @@ func PrintConfig(v *viper.Viper) {
 	)
 }
 
+func RegisterStopSignals(c *common.Client) {
+	signalChan := make(chan os.Signal, 1)
+	signal.Notify(signalChan, syscall.SIGTERM, syscall.SIGINT)
+
+	go func() {
+		<-signalChan
+		c.OnStopSignal()
+	}()
+}
+
 func main() {
 	v, err := InitConfig()
 	if err != nil {
@@ -111,5 +123,6 @@ func main() {
 	}
 
 	client := common.NewClient(clientConfig)
+	RegisterStopSignals(client)
 	client.StartClientLoop()
 }

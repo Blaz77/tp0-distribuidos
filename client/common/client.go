@@ -21,15 +21,17 @@ type ClientConfig struct {
 
 // Client Entity that encapsulates how
 type Client struct {
-	config ClientConfig
-	conn   net.Conn
+	config     ClientConfig
+	conn       net.Conn
+	stopSignal chan struct{}
 }
 
 // NewClient Initializes a new client receiving the configuration
 // as a parameter
 func NewClient(config ClientConfig) *Client {
 	client := &Client{
-		config: config,
+		config:     config,
+		stopSignal: make(chan struct{}),
 	}
 	return client
 }
@@ -55,6 +57,14 @@ func (c *Client) StartClientLoop() {
 	// There is an autoincremental msgID to identify every message sent
 	// Messages if the message amount threshold has not been surpassed
 	for msgID := 1; msgID <= c.config.LoopAmount; msgID++ {
+
+		select {
+		case <-c.stopSignal:
+			log.Infof("action: loop_exit_shutdown | result: success | client_id: %v", c.config.ID)
+			return
+		default:
+		}
+
 		// Create the connection the server in every loop iteration. Send an
 		c.createClientSocket()
 
@@ -86,4 +96,15 @@ func (c *Client) StartClientLoop() {
 
 	}
 	log.Infof("action: loop_finished | result: success | client_id: %v", c.config.ID)
+}
+
+func (c *Client) OnStopSignal() {
+	log.Infof("action: shutdown signal received | result: success | client_id: %v", c.config.ID)
+
+	close(c.stopSignal)
+
+	if c.conn != nil {
+		c.conn.Close()
+		log.Infof("action: connection close | result: success | client_id: %v", c.config.ID)
+	}
 }
