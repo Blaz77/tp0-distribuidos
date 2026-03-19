@@ -92,8 +92,13 @@ func (c *Client) StartClientLoop() {
 		)
 
 		// Wait a time between sending one message and the next one
-		time.Sleep(c.config.LoopPeriod)
-
+		// Can be cancelled through stop_signal, without busy-waiting
+		select {
+		case <-c.stopSignal:
+			log.Infof("action: loop_exit_shutdown | result: success | client_id: %v", c.config.ID)
+			return
+		case <-time.After(c.config.LoopPeriod):
+		}
 	}
 	log.Infof("action: loop_finished | result: success | client_id: %v", c.config.ID)
 }
