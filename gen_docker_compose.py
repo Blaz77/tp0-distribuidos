@@ -18,6 +18,8 @@ class DockerComposeGenerator:
     container_name: [[name]]
     image: client:latest
     entrypoint: /client
+    env_file:
+      - ./client/env/client[[id]].env
     environment:
       - CLI_ID=[[id]]
     networks:
