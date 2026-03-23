@@ -1,7 +1,6 @@
 package common
 
 import (
-	"fmt"
 	"time"
 
 	"github.com/op/go-logging"
@@ -15,6 +14,7 @@ type ClientConfig struct {
 	ServerAddress string
 	LoopAmount    int
 	LoopPeriod    time.Duration
+	ClientBet     *Bet
 }
 
 // Client Entity that encapsulates how
@@ -66,27 +66,30 @@ func (c *Client) StartClientLoop() {
 		// Create the connection the server in every loop iteration. Send an
 		c.createClientSocket()
 
-		message := fmt.Sprintf("[CLIENT %v] Message N°%v\n",
-			c.config.ID,
-			msgID,
-		)
-
-		c.socket.SendBytes([]byte(message))
-		response, err := c.socket.ReadLine()
-		c.socket.Disconnect()
-
+		rawBet, err := c.config.ClientBet.Serialize()
 		if err != nil {
-			log.Errorf("action: receive_message | result: fail | client_id: %v | error: %v",
+			log.Errorf("action: serialize_bet | result: fail | client_id: %v | error: %v",
 				c.config.ID,
 				err,
 			)
 			return
 		}
 
-		log.Infof("action: receive_message | result: success | client_id: %v | msg: %v",
-			c.config.ID,
-			response,
+		if err := c.socket.SendBytes(rawBet); err != nil {
+			log.Errorf("action: send_bet | result: fail | client_id: %v | error: %v",
+				c.config.ID,
+				err,
+			)
+			return
+		}
+		// TODO Implement ack
+		//response, err := c.socket.ReadLine()
+		log.Infof("action: apuesta_enviada | result: success | dni: %v | numero: %v",
+			c.config.ClientBet.Document,
+			c.config.ClientBet.Number,
 		)
+
+		c.socket.Disconnect()
 
 		// Wait a time between sending one message and the next one
 		// Can be cancelled through stop_signal, without busy-waiting

@@ -3,6 +3,8 @@ import logging
 import signal
 
 from common.client_connection import ClientConnection
+from common.bet_serializer import BetSerializer
+from common.utils import store_bets
 
 
 class Server:
@@ -43,11 +45,17 @@ class Server:
         client socket will also be closed
         """
         try:
-            msg = client_conn.ReadLine()
-            logging.info(f'action: receive_message | result: success | ip: {client_conn.addr[0]} | msg: {msg}')
-            client_conn.SendString("{}\n".format(msg))
+            raw_bet = client_conn.read_bet_v1()
+            logging.info(f'action: receive_bet | result: success | ip: {client_conn.addr[0]}')
+            bet = BetSerializer.deserialize(raw_bet)
+            store_bets([bet])
+            logging.info(f'apuesta_almacenada | result: success | dni: {bet.document} | numero: {bet.number}')
+            # TODO Send confirmation
+            #client_conn.send_string("{}\n".format(msg))
         except OSError as e:
-            logging.error(f"action: receive_message | result: fail | error: {e}")
+            logging.error(f"action: receive_bet | result: fail | error: {e}")
+        except RuntimeError as e:
+            logging.error(f"action: deserialize_bet | result: fail | error: {e}")
         finally:
             client_conn.disconnect()
             logging.info('action: client socket close | result: success')
