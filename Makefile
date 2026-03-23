@@ -37,3 +37,6 @@ docker-compose-down:
 docker-compose-logs:
 	docker compose -f docker-compose-dev.yaml logs -f
 .PHONY: docker-compose-logs
+
+unzip:
+	unzip -o .data/dataset.zip -d .data
