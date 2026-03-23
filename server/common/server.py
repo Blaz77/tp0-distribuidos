@@ -49,7 +49,7 @@ class Server:
             logging.info(f'action: receive_bet | result: success | ip: {client_conn.addr[0]}')
             bet = BetSerializer.deserialize(raw_bet)
             store_bets([bet])
-            logging.info(f'apuesta_almacenada | result: success | dni: {bet.document} | numero: {bet.number}')
+            logging.info(f'action: apuesta_almacenada | result: success | dni: {bet.document} | numero: {bet.number}')
             # TODO Send confirmation
             #client_conn.send_string("{}\n".format(msg))
         except OSError as e:
