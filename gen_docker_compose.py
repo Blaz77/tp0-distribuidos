@@ -28,6 +28,7 @@ class DockerComposeGenerator:
       - server
     volumes:
       - ./client/config.yaml:/config.yaml
+      - ./.data/agency-[[id]].csv:/.data/agency-[[id]].csv
 """
 
     _NETWORKS_SECTION = """

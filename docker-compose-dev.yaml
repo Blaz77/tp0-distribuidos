@@ -25,6 +25,7 @@ services:
       - server
     volumes:
       - ./client/config.yaml:/config.yaml
+      - ./.data/agency-1.csv:/.data/agency-1.csv
 
   client2:
     container_name: client2
@@ -40,6 +41,7 @@ services:
       - server
     volumes:
       - ./client/config.yaml:/config.yaml
+      - ./.data/agency-2.csv:/.data/agency-2.csv
 
   client3:
     container_name: client3
@@ -55,6 +57,7 @@ services:
       - server
     volumes:
       - ./client/config.yaml:/config.yaml
+      - ./.data/agency-3.csv:/.data/agency-3.csv
 
   client4:
     container_name: client4
@@ -70,6 +73,7 @@ services:
       - server
     volumes:
       - ./client/config.yaml:/config.yaml
+      - ./.data/agency-4.csv:/.data/agency-4.csv
 
   client5:
     container_name: client5
@@ -85,6 +89,7 @@ services:
       - server
     volumes:
       - ./client/config.yaml:/config.yaml
+      - ./.data/agency-5.csv:/.data/agency-5.csv
 
 networks:
   testing_net:
