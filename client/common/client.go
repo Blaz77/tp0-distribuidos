@@ -82,8 +82,23 @@ func (c *Client) StartClientLoop() {
 			)
 			return
 		}
-		// TODO Implement ack
-		//response, err := c.socket.ReadLine()
+
+		response, err := c.socket.ReadLine()
+		if err != nil {
+			log.Errorf("action: receive_ack | result: fail | client_id: %v | error: %v",
+				c.config.ID,
+				err,
+			)
+			return
+		}
+		if response != "ACK\n" {
+			log.Errorf("action: receive_ack | result: fail | client_id: %v | error: Unexpected response: %s",
+				c.config.ID,
+				response,
+			)
+			return
+		}
+
 		log.Infof("action: apuesta_enviada | result: success | dni: %v | numero: %v",
 			c.config.ClientBet.Document,
 			c.config.ClientBet.Number,

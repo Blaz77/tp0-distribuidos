@@ -50,8 +50,8 @@ class Server:
             bet = BetSerializer.deserialize(raw_bet)
             store_bets([bet])
             logging.info(f'action: apuesta_almacenada | result: success | dni: {bet.document} | numero: {bet.number}')
-            # TODO Send confirmation
-            #client_conn.send_string("{}\n".format(msg))
+            client_conn.send_ack()
+            logging.debug(f'action: send_ack | result: success | ip: {client_conn.addr[0]}')
         except OSError as e:
             logging.error(f"action: receive_bet | result: fail | error: {e}")
         except RuntimeError as e:

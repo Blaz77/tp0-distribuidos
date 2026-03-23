@@ -25,6 +25,10 @@ class ClientConnection:
     def send_string(self, data: str):
         self.socket.sendall(data.encode('utf-8'))
 
+    def send_ack(self):
+        data = "ACK\n"
+        self.send_string(data)
+
     def read_bet_v1(self):
         BET_HEADER_ID = b'AB\0\1'
         INT_SIZE = 4
@@ -47,7 +51,7 @@ class ClientConnection:
             # Ensure we have the Bet packet size
             while len(self._read_buff) < HEADER_SIZE:
                 if not self._recv_more():
-                    raise Exception("Unable to read the payload length")
+                    raise RuntimeError("Unable to read the payload length")
                 
             payload_size = int.from_bytes(self._read_buff[len(BET_HEADER_ID):HEADER_SIZE], "big")
             
@@ -55,7 +59,7 @@ class ClientConnection:
             total_size = HEADER_SIZE + payload_size
             while len(self._read_buff) < total_size:
                 if not self._recv_more():
-                    raise Exception("Unable to finish reading the packet payload")
+                    raise RuntimeError("Unable to finish reading the packet payload")
             
             # Save payload and remove from buffer
             payload = self._read_buff[HEADER_SIZE:total_size]
