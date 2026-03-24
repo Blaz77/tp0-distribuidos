@@ -18,6 +18,8 @@ class Server:
         self.agencies_num = agencies_num
         self._is_running = True
         self.agencies_ready = set()
+        self.agencies_ready_lock = threading.Lock()
+        self.store_bets_lock = threading.Lock()
 
     def run(self):
         """
@@ -48,8 +50,7 @@ class Server:
 
     def _handle_client_connection(self, client_conn: ClientConnection):
         self._handle_agency_flow(client_conn)
-        if len(self.agencies_ready) >= self.agencies_num:
-            self._start_draw()
+        self._try_start_draw()
 
     def _handle_agency_flow(self, client_conn: ClientConnection):
         """
@@ -89,8 +90,9 @@ class Server:
                     bet = BetSerializer.deserialize(client_conn.id, raw_bet)
                     bets.append(bet)
                 logging.info(f'action: apuesta_recibida | result: success | cantidad: {batch_size}')
-                store_bets(bets)
                 client_conn.send_ack()
+                with self.store_bets_lock:
+                    store_bets(bets)
                 logging.debug(f'action: send_ack | result: success | ip: {client_conn.addr[0]}')
             except (OSError, RuntimeError) as e:
                 logging.error(f"action: receive_bet | result: fail | error: {e}")
@@ -123,6 +125,11 @@ class Server:
         client_conn.disconnect()
         logging.info(f'action: client_socket_close | result: success | id: {client_conn.id}')
         self.connections.remove(client_conn)
+
+    def _try_start_draw(self):
+        with self.agencies_ready_lock:
+            if len(self.agencies_ready) >= self.agencies_num:
+                self._start_draw()
 
     def _start_draw(self):
         logging.info('action: sorteo | result: success')
