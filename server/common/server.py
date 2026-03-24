@@ -8,13 +8,14 @@ from common.utils import has_won, load_bets, store_bets
 
 
 class Server:
-    def __init__(self, port, listen_backlog):
+    def __init__(self, port, listen_backlog, agencies_num: int):
         # Initialize server socket
         self._server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self._server_socket.bind(('', port))
         self._server_socket.listen(listen_backlog)
         self.connections: list[ClientConnection] = []
         self.agencies_ready = set()
+        self.agencies_num = agencies_num
         self._is_running = True
 
     def run(self):
@@ -40,7 +41,7 @@ class Server:
                 else:
                     raise
 
-            if len(self.agencies_ready) >= 5:
+            if len(self.agencies_ready) >= self.agencies_num:
                 self._start_draw()
 
     def __handle_client_connection(self, client_conn: ClientConnection):

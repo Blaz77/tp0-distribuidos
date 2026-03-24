@@ -7,6 +7,7 @@ class DockerComposeGenerator:
     entrypoint: python3 /main.py
     environment:
       - PYTHONUNBUFFERED=1
+      - AGENCIES_NUM=[[agencies_num]]
     networks:
       - testing_net
     volumes:
@@ -50,7 +51,7 @@ networks:
     @staticmethod
     def _generate_content(num_clients):
         content = "name: tp0\nservices:\n"
-        content += DockerComposeGenerator._SERVER_SECTION
+        content += DockerComposeGenerator._SERVER_SECTION.replace("[[agencies_num]]", str(num_clients))
         for i in range(num_clients):
             content += DockerComposeGenerator._generate_client(i+1)
         content += DockerComposeGenerator._NETWORKS_SECTION
