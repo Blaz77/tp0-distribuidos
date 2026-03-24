@@ -1,27 +1,29 @@
 package common
 
 import (
-	"time"
+	"fmt"
+	"os"
 
 	"github.com/op/go-logging"
 )
 
 var log = logging.MustGetLogger("log")
 
+const DATASET_PATH = "./.data/agency-%v.csv"
+
 // ClientConfig Configuration used by the client
 type ClientConfig struct {
 	ID            string
 	ServerAddress string
-	LoopAmount    int
-	LoopPeriod    time.Duration
-	ClientBet     *Bet
+	MaxBatchItems int
 }
 
 // Client Entity that encapsulates how
 type Client struct {
-	config     ClientConfig
-	socket     *Socket
-	stopSignal chan struct{}
+	config      ClientConfig
+	socket      *Socket
+	stopSignal  chan struct{}
+	DatasetFile *os.File
 }
 
 // NewClient Initializes a new client receiving the configuration
@@ -40,22 +42,24 @@ func NewClient(config ClientConfig) *Client {
 func (c *Client) createClientSocket() error {
 	sock, err := ConnectTCP(c.config.ServerAddress)
 	if err != nil {
-		log.Criticalf(
-			"action: connect | result: fail | client_id: %v | error: %v",
-			c.config.ID,
-			err,
+		log.Criticalf("action: connect | result: fail | client_id: %v | error: %v",
+			c.config.ID, err,
 		)
 	}
 	c.socket = sock
+	log.Debugf("action: connect | result: success | client_id: %v", c.config.ID)
 	return nil
 }
 
-// StartClientLoop Send messages to the client until some time threshold is met
-func (c *Client) StartClientLoop() {
-	// There is an autoincremental msgID to identify every message sent
-	// Messages if the message amount threshold has not been surpassed
-	for msgID := 1; msgID <= c.config.LoopAmount; msgID++ {
+func (c *Client) closeClientSocket() {
+	if c.socket.conn != nil {
+		c.socket.Disconnect()
+		log.Debugf("action: connection_close | result: success | client_id: %v", c.config.ID)
+	}
+}
 
+func (c *Client) DoClientLoop(batchBuilder *BatchBuilder) {
+	for !batchBuilder.ReachedEOF {
 		select {
 		case <-c.stopSignal:
 			log.Infof("action: loop_exit_shutdown | result: success | client_id: %v", c.config.ID)
@@ -63,22 +67,19 @@ func (c *Client) StartClientLoop() {
 		default:
 		}
 
-		// Create the connection the server in every loop iteration. Send an
 		c.createClientSocket()
 
-		rawBet, err := c.config.ClientBet.Serialize()
+		rawBatch, count, err := batchBuilder.BuildNext()
 		if err != nil {
-			log.Errorf("action: serialize_bet | result: fail | client_id: %v | error: %v",
-				c.config.ID,
-				err,
+			log.Errorf("action: build_batch | result: fail | client_id: %v | error: %v",
+				c.config.ID, err,
 			)
 			return
 		}
 
-		if err := c.socket.SendBytes(rawBet); err != nil {
-			log.Errorf("action: send_bet | result: fail | client_id: %v | error: %v",
-				c.config.ID,
-				err,
+		if err := c.socket.SendBytes(rawBatch); err != nil {
+			log.Errorf("action: send_batch | result: fail | client_id: %v | error: %v",
+				c.config.ID, err,
 			)
 			return
 		}
@@ -86,45 +87,49 @@ func (c *Client) StartClientLoop() {
 		response, err := c.socket.ReadLine()
 		if err != nil {
 			log.Errorf("action: receive_ack | result: fail | client_id: %v | error: %v",
-				c.config.ID,
-				err,
+				c.config.ID, err,
 			)
 			return
 		}
 		if response != "ACK\n" {
 			log.Errorf("action: receive_ack | result: fail | client_id: %v | error: Unexpected response: %s",
-				c.config.ID,
-				response,
+				c.config.ID, response,
 			)
 			return
 		}
 
-		log.Infof("action: apuesta_enviada | result: success | dni: %v | numero: %v",
-			c.config.ClientBet.Document,
-			c.config.ClientBet.Number,
-		)
+		log.Infof("action: apuesta_enviada | result: success | cantidad: %v", count)
 
-		c.socket.Disconnect()
-
-		// Wait a time between sending one message and the next one
-		// Can be cancelled through stop_signal, without busy-waiting
-		select {
-		case <-c.stopSignal:
-			log.Infof("action: loop_exit_shutdown | result: success | client_id: %v", c.config.ID)
-			return
-		case <-time.After(c.config.LoopPeriod):
-		}
+		c.closeClientSocket()
 	}
-	log.Infof("action: loop_finished | result: success | client_id: %v", c.config.ID)
+}
+
+func (c *Client) Start() {
+	f, err := os.Open(fmt.Sprintf(DATASET_PATH, c.config.ID))
+	if err != nil {
+		log.Critical(err)
+		return
+	}
+	c.DatasetFile = f
+	batchBuilder := NewBatchBuilder(c.DatasetFile, c.config.MaxBatchItems)
+	c.DoClientLoop(batchBuilder)
+
+	c.Shutdown()
+}
+
+func (c *Client) Shutdown() {
+	c.closeClientSocket()
+
+	if c.DatasetFile != nil {
+		c.DatasetFile.Close()
+		c.DatasetFile = nil
+		log.Debugf("action: dataset_file_close | result: success | client_id: %v", c.config.ID)
+	}
 }
 
 func (c *Client) OnStopSignal() {
 	log.Infof("action: shutdown signal received | result: success | client_id: %v", c.config.ID)
 
 	close(c.stopSignal)
-
-	if c.socket.conn != nil {
-		c.socket.Disconnect()
-		log.Infof("action: connection close | result: success | client_id: %v", c.config.ID)
-	}
+	c.closeClientSocket()
 }

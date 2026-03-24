@@ -64,5 +64,7 @@ func (s *Socket) ReadLine() (string, error) {
 }
 
 func (s *Socket) Disconnect() error {
-	return s.conn.Close()
+	err := s.conn.Close()
+	s.conn = nil
+	return err
 }

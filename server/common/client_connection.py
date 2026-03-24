@@ -29,10 +29,9 @@ class ClientConnection:
         data = "ACK\n"
         self.send_string(data)
 
-    def read_bet_v1(self):
-        BET_HEADER_ID = b'AB\0\1'
+    def _read_header(self, header_id: bytes) -> int:
         INT_SIZE = 4
-        HEADER_SIZE = len(BET_HEADER_ID) + INT_SIZE
+        HEADER_SIZE = len(header_id) + INT_SIZE
         while True:
             # Receive until we have enough data to work with
             while len(self._read_buff) < HEADER_SIZE:
@@ -40,23 +39,38 @@ class ClientConnection:
                     raise RuntimeError("Unable to read the packet header")
             
             # Look for the expected header and discard garbage
-            header_pos = self._read_buff.find(BET_HEADER_ID)
+            header_pos = self._read_buff.find(header_id)
             if header_pos == -1:
                 # Keep a possible partial header
-                self._read_buff = self._read_buff[-len(BET_HEADER_ID):]
+                self._read_buff = self._read_buff[-len(header_id):]
                 continue
             if header_pos > 0:
                 self._read_buff = self._read_buff[header_pos:]
 
-            # Ensure we have the Bet packet size
+            # Ensure we have the size field
             while len(self._read_buff) < HEADER_SIZE:
                 if not self._recv_more():
-                    raise RuntimeError("Unable to read the payload length")
+                    raise RuntimeError("Unable to read the size field")
                 
-            payload_size = int.from_bytes(self._read_buff[len(BET_HEADER_ID):HEADER_SIZE], "big")
-            
+            size = int.from_bytes(self._read_buff[len(header_id):HEADER_SIZE], "big")
+            return size
+
+    def read_bet_batch_v1(self):
+        BATCH_HEADER_ID = b'BB\0\1'
+        INT_SIZE = 4
+        HEADER_SIZE = len(BATCH_HEADER_ID) + INT_SIZE
+        batch_size = self._read_header(BATCH_HEADER_ID)
+        self._read_buff = self._read_buff[HEADER_SIZE:]
+        return batch_size
+
+    def read_bet_v1(self):
+        BET_HEADER_ID = b'AB\0\1'
+        INT_SIZE = 4
+        HEADER_SIZE = len(BET_HEADER_ID) + INT_SIZE
+        payload_size = self._read_header(BET_HEADER_ID)
+        total_size = HEADER_SIZE + payload_size
+        while True:
             # Ensure we have the entire expected packet
-            total_size = HEADER_SIZE + payload_size
             while len(self._read_buff) < total_size:
                 if not self._recv_more():
                     raise RuntimeError("Unable to finish reading the packet payload")

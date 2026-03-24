@@ -45,17 +45,27 @@ class Server:
         client socket will also be closed
         """
         try:
-            raw_bet = client_conn.read_bet_v1()
-            logging.info(f'action: receive_bet | result: success | ip: {client_conn.addr[0]}')
-            bet = BetSerializer.deserialize(raw_bet)
-            store_bets([bet])
-            logging.info(f'action: apuesta_almacenada | result: success | dni: {bet.document} | numero: {bet.number}')
+            batch_size = client_conn.read_bet_batch_v1()
+            logging.debug(f'action: receive_batch_size | result: success | ip: {client_conn.addr[0]} | value: {batch_size}')
+        except (OSError, RuntimeError) as e:
+            logging.error(f"action: receive_batch_size | result: fail | error: {e}")
+            client_conn.disconnect()
+            logging.info('action: client socket close | result: success')
+            return
+
+        try:
+            bets = []
+            for _ in range(batch_size):
+                raw_bet = client_conn.read_bet_v1()
+                bet = BetSerializer.deserialize(raw_bet)
+                bets.append(bet)
+            logging.info(f'action: apuesta_recibida | result: success | cantidad: {batch_size}')
+            store_bets(bets)
             client_conn.send_ack()
             logging.debug(f'action: send_ack | result: success | ip: {client_conn.addr[0]}')
-        except OSError as e:
+        except (OSError, RuntimeError) as e:
             logging.error(f"action: receive_bet | result: fail | error: {e}")
-        except RuntimeError as e:
-            logging.error(f"action: deserialize_bet | result: fail | error: {e}")
+            logging.error(f"action: apuesta_recibida | result: fail | cantidad: {batch_size}")
         finally:
             client_conn.disconnect()
             logging.info('action: client socket close | result: success')
