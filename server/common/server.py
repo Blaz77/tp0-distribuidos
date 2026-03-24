@@ -1,6 +1,7 @@
 import socket
 import logging
 import signal
+import threading
 
 from common.client_connection import ClientConnection
 from common.bet_serializer import BetSerializer
@@ -14,9 +15,9 @@ class Server:
         self._server_socket.bind(('', port))
         self._server_socket.listen(listen_backlog)
         self.connections: list[ClientConnection] = []
-        self.agencies_ready = set()
         self.agencies_num = agencies_num
         self._is_running = True
+        self.agencies_ready = set()
 
     def run(self):
         """
@@ -34,22 +35,27 @@ class Server:
             try:
                 client_conn = self.__accept_new_connection()
                 self.connections.append(client_conn)
-                self.__handle_client_connection(client_conn)
+                thread = threading.Thread(
+                    target=self._handle_client_connection,
+                    args=(client_conn,)
+                )
+                thread.start()
             except OSError:
                 if not self._is_running:
                     break
                 else:
                     raise
 
-            if len(self.agencies_ready) >= self.agencies_num:
-                self._start_draw()
+    def _handle_client_connection(self, client_conn: ClientConnection):
+        self._handle_agency_flow(client_conn)
+        if len(self.agencies_ready) >= self.agencies_num:
+            self._start_draw()
 
-    def __handle_client_connection(self, client_conn: ClientConnection):
+    def _handle_agency_flow(self, client_conn: ClientConnection):
         """
-        Read message from a specific client socket and closes the socket
-
-        If a problem arises in the communication with the client, the
-        client socket will also be closed
+        Receives an established connection with an agency and proceeds with communication,
+        following the flow Identify -> Batched Bet dump -> Finish
+        If an error occurs during the communication, the connection is closed
         """
         try:
             client_conn.id = client_conn.read_identity_v1()
@@ -117,7 +123,7 @@ class Server:
         client_conn.disconnect()
         logging.info(f'action: client_socket_close | result: success | id: {client_conn.id}')
         self.connections.remove(client_conn)
-    
+
     def _start_draw(self):
         logging.info('action: sorteo | result: success')
 
