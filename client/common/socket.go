@@ -28,7 +28,7 @@ func ConnectTCP(ServerAddress string) (*Socket, error) {
 }
 
 // Reads N bytes from socket and returns its content in a buffer on success
-func (s *Socket) ReadBytes(n int) ([]byte, error) {
+func (s *Socket) ReadBytes(n uint32) ([]byte, error) {
 	data := make([]byte, n)
 	_, err := io.ReadFull(s.buffer, data)
 	if err != nil {

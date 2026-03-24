@@ -28,11 +28,11 @@ class BetSerializer:
         return epoch + timedelta(days=days_since_epoch), offset
 
     @staticmethod
-    def deserialize(data: bytes) -> Bet:
+    def deserialize(agency_id: int, data: bytes) -> Bet:
         name, offset = BetSerializer._deserialize_str(data, 0)
         last_name, offset = BetSerializer._deserialize_str(data, offset)
         dni, offset = BetSerializer._deserialize_int(data, offset)
         birth_date, offset = BetSerializer._deserialize_date(data, offset)
         number, offset = BetSerializer._deserialize_int(data, offset)
         assert(offset == len(data))
-        return Bet(str(1), name, last_name, str(dni), birth_date.isoformat(), str(number))
+        return Bet(str(agency_id), name, last_name, str(dni), birth_date.isoformat(), str(number))

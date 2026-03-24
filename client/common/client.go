@@ -1,8 +1,11 @@
 package common
 
 import (
+	"bytes"
+	"encoding/binary"
 	"fmt"
 	"os"
+	"strconv"
 
 	"github.com/op/go-logging"
 )
@@ -39,7 +42,7 @@ func NewClient(config ClientConfig) *Client {
 // CreateClientSocket Initializes client socket. In case of
 // failure, error is printed in stdout/stderr and exit 1
 // is returned
-func (c *Client) createClientSocket() error {
+func (c *Client) CreateClientSocket() error {
 	sock, err := ConnectTCP(c.config.ServerAddress)
 	if err != nil {
 		log.Criticalf("action: connect | result: fail | client_id: %v | error: %v",
@@ -51,14 +54,29 @@ func (c *Client) createClientSocket() error {
 	return nil
 }
 
-func (c *Client) closeClientSocket() {
+func (c *Client) CloseClientSocket() {
 	if c.socket.conn != nil {
 		c.socket.Disconnect()
 		log.Debugf("action: connection_close | result: success | client_id: %v", c.config.ID)
 	}
 }
 
-func (c *Client) DoClientLoop(batchBuilder *BatchBuilder) {
+func (c *Client) IdentifyAgency() {
+	const identifyHeaderId = "AI\x00\x01"
+	agencyId, _ := strconv.ParseUint(c.config.ID, 10, 32)
+	buf := make([]byte, 8)
+	copy(buf[:4], identifyHeaderId)
+	binary.BigEndian.PutUint32(buf[4:], uint32(agencyId))
+
+	if err := c.socket.SendBytes(buf); err != nil {
+		log.Criticalf("action: identify_agency | result: fail | client_id: %v | error: %v",
+			c.config.ID, err,
+		)
+	}
+	log.Info("action: identify_agency | result: success")
+}
+
+func (c *Client) SendBetsLoop(batchBuilder *BatchBuilder) {
 	for !batchBuilder.ReachedEOF {
 		select {
 		case <-c.stopSignal:
@@ -66,8 +84,6 @@ func (c *Client) DoClientLoop(batchBuilder *BatchBuilder) {
 			return
 		default:
 		}
-
-		c.createClientSocket()
 
 		rawBatch, count, err := batchBuilder.BuildNext()
 		if err != nil {
@@ -92,16 +108,63 @@ func (c *Client) DoClientLoop(batchBuilder *BatchBuilder) {
 			return
 		}
 		if response != "ACK\n" {
-			log.Errorf("action: receive_ack | result: fail | client_id: %v | error: Unexpected response: %s",
+			log.Errorf("action: receive_ack | result: fail | client_id: %v | error: Invalid response: %s",
 				c.config.ID, response,
 			)
 			return
 		}
 
 		log.Infof("action: apuesta_enviada | result: success | cantidad: %v", count)
-
-		c.closeClientSocket()
 	}
+
+	// Notify server that no more bets will be sent
+	endMsg := batchBuilder.BuildEnd()
+	if err := c.socket.SendBytes(endMsg); err != nil {
+		log.Errorf("action: send_end | result: fail | client_id: %v | error: %v",
+			c.config.ID, err,
+		)
+		return
+	}
+	response, err := c.socket.ReadLine()
+	if err != nil {
+		log.Errorf("action: receive_end_ack | result: fail | client_id: %v | error: %v",
+			c.config.ID, err,
+		)
+		return
+	}
+	if response != "ACK\n" {
+		log.Errorf("action: receive_end_ack | result: fail | client_id: %v | error: Invalid response: %s",
+			c.config.ID, response,
+		)
+		return
+	}
+	log.Debug("action: receive_end_ack | result: success")
+}
+
+func (c *Client) ReceiveWinners() {
+	const IntSize = 4
+	const WinnersHeaderId = "AW\x00\x01" // Agency Winners v1
+	const WinnersHeaderSize = len(WinnersHeaderId) + IntSize
+	header, err := c.socket.ReadBytes(uint32(WinnersHeaderSize))
+	if err != nil {
+		log.Errorf("action: consulta_ganadores | result: fail | error: %v", err)
+		return
+	}
+
+	if !bytes.Equal(header[:4], []byte(WinnersHeaderId)) {
+		log.Errorf("action: consulta_ganadores | result: fail | error: Invalid header %v", header[:4])
+		return
+	}
+
+	winnersNum := binary.BigEndian.Uint32(header[4:8])
+	_, err = c.socket.ReadBytes(winnersNum * IntSize)
+	if err != nil {
+		log.Errorf("action: consulta_ganadores | result: fail | error: %v", err)
+		return
+	}
+
+	// Payload not used, as we only need the amount of winners
+	log.Infof("action: consulta_ganadores | result: success | cant_ganadores: %d", winnersNum)
 }
 
 func (c *Client) Start() {
@@ -112,13 +175,17 @@ func (c *Client) Start() {
 	}
 	c.DatasetFile = f
 	batchBuilder := NewBatchBuilder(c.DatasetFile, c.config.MaxBatchItems)
-	c.DoClientLoop(batchBuilder)
+
+	c.CreateClientSocket()
+	c.IdentifyAgency()
+	c.SendBetsLoop(batchBuilder)
+	c.ReceiveWinners()
 
 	c.Shutdown()
 }
 
 func (c *Client) Shutdown() {
-	c.closeClientSocket()
+	c.CloseClientSocket()
 
 	if c.DatasetFile != nil {
 		c.DatasetFile.Close()
@@ -131,5 +198,5 @@ func (c *Client) OnStopSignal() {
 	log.Infof("action: shutdown signal received | result: success | client_id: %v", c.config.ID)
 
 	close(c.stopSignal)
-	c.closeClientSocket()
+	c.CloseClientSocket()
 }

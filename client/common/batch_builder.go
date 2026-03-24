@@ -10,8 +10,8 @@ import (
 )
 
 const (
-	MaxBatchSize = 8 * 1024 // 8KB
-	BatchHeader  = "BB\x00\x01"
+	MaxBatchSize = 8 * 1024     // 8KB
+	BatchHeader  = "BB\x00\x01" // Bet Batch v1
 )
 
 type BatchBuilder struct {
@@ -83,4 +83,12 @@ func (b *BatchBuilder) BuildNext() ([]byte, int, error) {
 	data := batchBuf.Bytes()
 	binary.BigEndian.PutUint32(data[4:], uint32(items))
 	return data, items, nil
+}
+
+func (b *BatchBuilder) BuildEnd() []byte {
+	var batchBuf bytes.Buffer
+	batchBuf.Write([]byte(BatchHeader))
+	// 0 items batch
+	batchBuf.Write(make([]byte, 4))
+	return batchBuf.Bytes()
 }
