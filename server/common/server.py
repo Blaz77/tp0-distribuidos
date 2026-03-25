@@ -78,9 +78,10 @@ class Server:
             # A zero size batch size means Bet transmission ended
             if batch_size == 0:
                 assert(client_conn.id > 0)
-                self.agencies_ready.add(client_conn.id)
                 client_conn.send_ack()
                 logging.debug(f'action: send_ack | result: success | ip: {client_conn.addr[0]}')
+                with self.agencies_ready_lock:
+                    self.agencies_ready.add(client_conn.id)
                 return
 
             try:
@@ -130,6 +131,7 @@ class Server:
         with self.agencies_ready_lock:
             if len(self.agencies_ready) >= self.agencies_num:
                 self._start_draw()
+                self.agencies_ready.clear()
 
     def _start_draw(self):
         logging.info('action: sorteo | result: success')
