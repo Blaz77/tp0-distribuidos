@@ -191,7 +191,7 @@ Respetar el formato y contenido las entradas de logs descritas en los ejercicios
 
 #### Ejercicio 1
 
-Se crea el script `generar-compose.sh`, que internamente ejecuta un script de python. Genera la configuracion de Docker compose tanto para servidor como clientes. Cada cliente se identifica incrementalmente. Tiene soporte para variables de entorno y volumes
+Se crea el script `generar-compose.sh`, que internamente ejecuta un script de python. Genera la configuracion de Docker compose tanto para servidor como clientes. Cada cliente se identifica incrementalmente. Tiene soporte para variables de entorno y volumes.
 
 Modo de uso:
 
@@ -209,7 +209,7 @@ Ademas se creó un archivo `.dockerignore`, para evitar que los archivos de conf
 
 Se creó el script `validar-echo-server.sh`, que ejecuta el comando `netcat` dentro de un contenedor alpine (Se eligió este por ser liviano), comunicandose con el contenedor de `server`, que debe estar levantado.
 
-Envia el mensaje `testing_the_server` al servidor y espera recibir el mismo mensaje en respuesta. Si es asi, muestra `action: test_echo_server | result: success` en pantalla. En caso contrario, muestra `action: test_echo_server | result: fail`
+Envia el mensaje `testing_the_server` al servidor y espera recibir el mismo mensaje en respuesta. Si es asi, muestra `action: test_echo_server | result: success` en pantalla. En caso contrario, muestra `action: test_echo_server | result: fail`.
 
 Modo de uso:
 
@@ -219,25 +219,25 @@ Modo de uso:
 
 #### Ejercicio 4
 
-Se agrega en servidor y cliente el manejo de señales `SIGTERM` y `SIGINT` para que finalicen de forma _graceful_ al recibirlas
+Se agrega en servidor y cliente el manejo de señales `SIGTERM` y `SIGINT` para que finalicen de forma _graceful_ al recibirlas.
 
-Para el servidor se utiliza el módulo `signal`, capturando las señales y asociándolas a un handler que setea el flag `is_running` en False y cierra el socket para rechazar nuevas conexiones
+Para el servidor se utiliza el módulo `signal`, capturando las señales y asociándolas a un handler que setea el flag `is_running` en False y cierra el socket para rechazar nuevas conexiones.
 
-Para los clientes se usa el módulo `os/signal`, registrando las señales al inicio y asociandolas a un channel. Ademas se lanza una goroutine que espera al channel para ejecutar el Shutdown que libera los recursos. Luego en el Main loop se implementan early returns en caso de que el channel haya sido notificado. Además se reemplaza el Sleep entre iteraciones por un `time.After` que permite ser cancelado por la notificación al channel
+Para los clientes se usa el módulo `os/signal`, registrando las señales al inicio y asociandolas a un channel. Ademas se lanza una goroutine que espera al channel para ejecutar el Shutdown que libera los recursos. Luego en el Main loop se implementan early returns en caso de que el channel haya sido notificado. Además se reemplaza el Sleep entre iteraciones por un `time.After` que permite ser cancelado por la notificación al channel.
 
 #### Ejercicio 5
 
-En este ejercicio primero se implementó la inserción de datos de la apuesta a los clientes. Se modificó el script de generación de docker-compose para incluir `env-files`, permitiendo que cada cliente tenga sus propios datos
+En este ejercicio primero se implementó la inserción de datos de la apuesta a los clientes. Se modificó el script de generación de docker-compose para incluir `env-files`, permitiendo que cada cliente tenga sus propios datos.
 
-Luego se empezó a definir el protocolo de comunicación (Detallado en el apartado **Protocolo**). En este ejercicio solo se implementaron los mensajes `AgencyBe` y `ACK`
+Luego se empezó a definir el protocolo de comunicación (Detallado en el apartado **Protocolo de comunicación**). En este ejercicio solo se implementaron los mensajes `Agency Bet` y `ACK`.
 
-Parte de los cambios incluyeron la implementación de clases para comunicación, solucionando problemas de _short-reads_ y _short-writes_, y serialización adecuada al protocolo
+Parte de los cambios incluyeron la implementación de clases para comunicación, solucionando problemas de _short-reads_ y _short-writes_, y serialización adecuada al protocolo.
 
-Se modificaron los loops de servidor y cliente para cumplir con el flujo de envío de apuestas, pero se mantuvo la creación de una conexión por cada mensaje-respuesta por simplicidad (Este patrón se mantiene hasta el ejercicio 7, donde se implementa de mejor manera)
+Se modificaron los loops de servidor y cliente para cumplir con el flujo de envío de apuestas, pero se mantuvo la creación de una conexión por cada mensaje-respuesta por simplicidad (Este patrón se mantiene hasta el ejercicio 7, donde se implementa de mejor manera).
 
 #### Ejercicio 6
 
-En primer lugar, dado que para alimentar a los clientes con las apuestas de los archivos csv, se agregó una entrada en el Makefile para descomprimir los archivos del dataset provisto.
+En primer lugar, dado que se requiere alimentar a los clientes con las apuestas de los archivos csv, se agregó una entrada en el Makefile para descomprimir los archivos del dataset provisto.
 
 Modo de uso:
 
@@ -245,17 +245,17 @@ Modo de uso:
 make unzip
 ```
 
-Además se actualizó el script `generar-compose.sh` para incluir los archivos csv a volumes mediante _Bind mount_
+Además se actualizó el script `generar-compose.sh` para incluir los archivos csv a volumes mediante _Bind mount_.
 
-En cuanto al protocolo, se agregó el mensaje `Bet Batch` y `ERRACK` para dar soporte a los mensajes de batch y la respuesta de errores en caso de registros mal formados
+En cuanto al protocolo, se agregó el mensaje `Bet Batch` y `ERRACK` para dar soporte a los mensajes de batch y la respuesta de errores en caso de registros mal formados.
 
-El servidor se actualizó para procesar estos lotes. En el caso del cliente, se implementó la generación del Batch mediante la clase `BatchBuilder`. Dado que los archivos pueden ser pesados, se leen a medida que se genera el Batch, en vez de cargarlos por completo en memoria. Como se requiere que el paquete no supere los 8KB y el tamaño de cada Bet serializado es variable, se hace un _look-ahead_ de 1 registro para saber cuándo cerrar el Batch
+El servidor se actualizó para procesar estos lotes. En el caso del cliente, se implementó la generación del Batch mediante la clase `BatchBuilder`. Dado que los archivos pueden ser pesados, se leen a medida que se genera el Batch, en vez de cargarlos por completo en memoria. Como se requiere que el paquete no supere los 8KB y el tamaño de cada Bet serializado es variable, se hace un _look-ahead_ de 1 registro para saber cuándo cerrar el Batch.
 
 #### Ejercicio 7
 
 Para este ejercicio se modificó sustancialmente el flujo tanto para servidor como clientes. Se migró a un esquema de conexión persistente, donde el primer mensaje que envía el cliente es un `Agency Identify`, que indica el Id de agencia que se usará para todas las Bets que el cliente envíe luego. Cuando el cliente finalice el envío de Bets, envía un mensaje `Bet Batch` con 0 elementos.
 
-En el servidor, se mantiene un estado de conexiones y agencias, y al detectar que todas las agencias terminaron de enviar sus apuestas, se procede al sorteo. Como resultado, se identifican los ganadores separados por agencia, y finalmente se envia un mensaje `Agency Winners` a cada agencia, incluyendo los dni de los ganadores de la agencia
+En el servidor, se mantiene un estado de conexiones y agencias, y al detectar que todas las agencias terminaron de enviar sus apuestas, se procede al sorteo. Como resultado, se identifican los ganadores separados por agencia, y finalmente se envia un mensaje `Agency Winners` a cada agencia, incluyendo los DNI de los ganadores de la agencia.
 
 #### Ejercicio 8
 
@@ -271,16 +271,16 @@ Además se agregó un `lock` para el set `agencies_ready`, ya que varios threads
 
 ### Protocolo de comunicación
 
-Los mensajes implementados se dividen en 2 grupos. En primer lugar se detallan los mensajes de contenido, de formato binario, que tienen un `HEADER` de tamaño fijo, y un `PAYLOAD` opcional de tamaño variable. El `HEADER` tiene la siguiente estructura
+Los mensajes implementados se dividen en 2 grupos. En primer lugar se detallan los mensajes de contenido, de formato binario, que tienen un `HEADER` de tamaño fijo, y un `PAYLOAD` opcional de tamaño variable. El `HEADER` tiene la siguiente estructura.
 
 ```
 | MSG_ID  | VERSION | NUM     |
 | 2 bytes | 2 bytes | 4 bytes |
 ```
 
-En todos los casos se utiliza el valor `0x01` para el campo `VERSION` por ser la primera versión, pero este campo está pensado para posibilitar una mejor gestión de compatibilidad en caso de futuras modificaciones del protocolo.
+En todos los casos se utiliza el valor `\0\1` para el campo `VERSION` por ser la primera versión, pero este campo está pensado para posibilitar una mejor gestión de compatibilidad en caso de futuras modificaciones del protocolo.
 
-El campo `NUM` se interpreta como un numero entero de 32 bits, pero su utilidad varía según el tipo de mensaje.
+El campo `NUM` es un numero entero de 32 bits, pero su utilidad varía según el tipo de mensaje.
 
 Todos los campos numéricos se codifican utilizando _BigEndian_.
 
@@ -302,11 +302,13 @@ Representa una apuesta. El campo `NUM` representa el tamaño en bytes del payloa
 
 Los campos `<str>` representan un string que se compone de un byte que indica el tamaño del mismo y luego los bytes de contenido, con encoding utf-8.
 
+El campo `Birthdate` es un número entero con signo de 32 bits que representa la cantidad de dias desde Epoch (`1970-01-01`). Se utiliza esa fecha por ser la referencia en los Unix timestamps, que tanto Python y Go manejan de forma estándar.
+
 ### Bet Batch
 
-Representa un Batch de apuestas. El campo `NUM` representa la cantidad de Bets que se espera recibir. El payload de este mensaje es un conjunto de mensajes `Agency Bet` concatenados
+Representa un Batch de apuestas. El campo `NUM` representa la cantidad de Bets que se espera recibir. El payload de este mensaje es un conjunto de mensajes `Agency Bet` concatenados.
 
-*Caso especial:* Al recibir un mensaje Bet Batch con el campo `NUM` igual a cero, se debe interpretar que el cliente finalizó el envío de apuestas.
+**Caso especial:** Al recibir un mensaje Bet Batch con el campo `NUM` igual a cero, se debe interpretar que el cliente finalizó el envío de apuestas.
 
 ### Agency Winners
 
@@ -314,9 +316,9 @@ Este mensaje es enviado desde el servidor hacia las agencias. El campo `NUM` rep
 
 ### Agency Identify
 
-Este debe ser el primer mensaje que la agencia envíe al servidor. El campo `NUM` representa el ID de agencia. Este mensaje no tiene payload
+Este debe ser el primer mensaje que la agencia envíe al servidor. El campo `NUM` representa el ID de agencia. Este mensaje no tiene payload.
 
 ### Mensajes de ACK y ERRACK
 
-Estos pertenecen al segundo grupo de mensajes. Se envían como texto plano, desde el servidor a la agencia, para indicar recepción exitosa (`ACK`) o recepción con errores (`ERRACK`). Estos mensajes debe finalizar con el caracter `\n`
+Estos pertenecen al segundo grupo de mensajes. Se envían como texto plano, desde el servidor a la agencia, para indicar recepción exitosa (`ACK`) o recepción con errores (`ERRACK`). Estos mensajes debe finalizar con el caracter `\n`.
 
